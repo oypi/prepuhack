@@ -125,6 +125,8 @@ DEFAULT_CONFIG = {
     "developer": "oneypi",
     "description": "long live the prepubros!",
     "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
+    "changelog": "# PrepuHack Changelog\n\n## v9.1.3\n- Initial PrepuHack release\n- Custom Cyanish theme and branding\n- Full DRM and license verification bypass",
+    "changelog_path": "changelog.md",
     "logo_path": "logo.png",
     "theme": {
         "name": "Cyanish",
@@ -304,12 +306,18 @@ def apply_patches(data, targets):
     return bytes(patched)
 
 
-def rename_in_dll(data, old_name, new_name):
-    assert len(old_name) == len(new_name)
+def rename_in_dll(data: bytes, old_name: bytes, new_name: str) -> bytes:
+    old_len = len(old_name)
+    encoded = new_name.encode('utf-8')
+    if len(encoded) > old_len:
+        replacement = encoded[:old_len]
+    else:
+        replacement = encoded.ljust(old_len, b' ')
+
     count = data.count(old_name)
     if count > 0:
-        data = data.replace(old_name, new_name)
-        print(f"  Renamed {count}x '{old_name.decode()}' -> '{new_name.decode()}' in DLL")
+        data = data.replace(old_name, replacement)
+        print(f"  Renamed {count}x '{old_name.decode()}' -> '{replacement.decode()}' in binary")
     return data
 
 
@@ -502,6 +510,25 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
     target_about = config.get("about", "") if rebrand else ""
     target_dll = f"{target_mod_id}.dll" if rebrand else ORIGINAL_DLL
 
+    target_changelog = ""
+    if rebrand:
+        changelog_setting = config.get("changelog_path")
+        changelog_file_loaded = False
+        if changelog_setting:
+            cp = Path(changelog_setting)
+            candidates = [cp] if cp.is_absolute() else [Path(__file__).parent / cp, Path.cwd() / cp]
+            for cl_file in candidates:
+                if cl_file and cl_file.exists() and cl_file.is_file():
+                    try:
+                        target_changelog = cl_file.read_text(encoding="utf-8")
+                        print(f"  Custom changelog loaded from: {cl_file}")
+                        changelog_file_loaded = True
+                        break
+                    except Exception as e:
+                        print(f"  [WARN] Could not read changelog from {cl_file}: {e}")
+        if not changelog_file_loaded:
+            target_changelog = config.get("changelog", "")
+
     custom_logo_data = None
     if rebrand:
         logo_setting = config.get("logo_path")
@@ -534,10 +561,13 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     print(f"\nPatching {ORIGINAL_DLL} ({len(file_data):,} bytes)")
                     targets = find_all_targets(file_data)
                     file_data = apply_patches(file_data, targets)
-                    if rebrand and target_name and len(target_name) == len("Mega Hack"):
-                        file_data = rename_in_dll(file_data, b'Mega Hack', target_name.encode())
+                    if rebrand and target_name:
+                        file_data = rename_in_dll(file_data, b'Mega Hack', target_name)
                     out_name = target_dll
                     print(f"  DLL: {ORIGINAL_DLL} -> {target_dll}")
+
+                elif item.filename.endswith(('.so', '.dylib')) and rebrand and target_name:
+                    file_data = rename_in_dll(file_data, b'Mega Hack', target_name)
 
                 elif item.filename == 'mod.json':
                     print("\nCustomizing mod.json")
@@ -548,11 +578,15 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     print("  Replaced about.md")
                     file_data = target_about.encode('utf-8')
 
+                elif item.filename == 'changelog.md' and rebrand and target_changelog:
+                    print("  Replaced changelog.md")
+                    file_data = target_changelog.encode('utf-8')
+
                 elif item.filename == 'logo.png' and rebrand and custom_logo_data:
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
 
-                elif rebrand and ORIGINAL_MOD_ID in item.filename:
+                if rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL:
                     out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
                 zout.writestr(out_name, file_data)

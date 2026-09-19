@@ -30,7 +30,9 @@ Customize branding and theme colors by editing `config.json`:
   "name": "PrepuHack",
   "developer": "oneypi",
   "description": "long live the prepubros!",
-  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
+  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi.",
+  "changelog": "# PrepuHack Changelog\n\n## v9.1.3\n- Initial PrepuHack release",
+  "changelog_path": "changelog.md",
   "logo_path": "logo.png",
   "theme": {
     "name": "Cyanish",
@@ -41,7 +43,7 @@ Customize branding and theme colors by editing `config.json`:
 }
 ```
 
-Hex color formats (`"#00CED1"`, `"0x00CED1"`) and custom logo file paths (`"logo_path"`) are fully supported.
+Hex color formats (`"#00CED1"`, `"0x00CED1"`), custom logo files (`"logo_path"`), and custom markdown changelogs (`"changelog_path"` or `"changelog"`) are fully supported.
 
 ---
 
