@@ -286,18 +286,7 @@ def customize_mod_json(data):
     mod['name'] = CUSTOM_NAME
     mod['developer'] = CUSTOM_DEVELOPER
     mod['description'] = CUSTOM_DESCRIPTION
-    if 'resources' in mod and 'sprites' in mod['resources']:
-        mod['resources']['sprites'] = [
-            s.replace(f'resources/{ORIGINAL_MOD_ID}/', f'resources/{CUSTOM_MOD_ID}/')
-            if ORIGINAL_MOD_ID in s else s
-            for s in mod['resources']['sprites']
-        ]
-    if 'resources' in mod and 'files' in mod['resources']:
-        mod['resources']['files'] = [
-            s.replace(f'resources/{ORIGINAL_MOD_ID}/', f'resources/{CUSTOM_MOD_ID}/')
-            if ORIGINAL_MOD_ID in s else s
-            for s in mod['resources']['files']
-        ]
+    # Keep resource entries intact without modifying inner paths so Geode can uncompress and resolve them cleanly
     return json.dumps(mod, indent='\t').encode('utf-8')
 
 
@@ -436,9 +425,6 @@ def patch_geode_package(geode_zip_bytes, output_path: Path):
                 elif item.filename == 'logo.png' and custom_logo_data:
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
-
-                elif ORIGINAL_MOD_ID in item.filename:
-                    out_name = item.filename.replace(ORIGINAL_MOD_ID, CUSTOM_MOD_ID)
 
                 zout.writestr(out_name, file_data)
     return output_path
