@@ -1,0 +1,14 @@
+{
+  "mod_id": "oneypi.prepuhack",
+  "name": "PrepuHack",
+  "developer": "oneypi",
+  "description": "long live the prepubros!",
+  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
+  "logo_path": "logo.png",
+  "theme": {
+    "name": "Cyanish",
+    "accent": "#00CED1",
+    "background": "#1A2A2D",
+    "tab_text": "#FFFFFF"
+  }
+}

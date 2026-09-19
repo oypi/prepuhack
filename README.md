@@ -14,23 +14,48 @@ PrepuHack is an automated patcher tool that unlocks Mega Hack v9 for Geometry Da
 
 1. **Unlocks Mega Hack v9 for Free**: Bypasses Mega Hack's online account check, hardware ID verification, and license signature checks.
 2. **Automated Setup & Cleanup**: Downloads the newest official release package directly from the server and purges any older cached installations before deploying.
-3. **Optional Branding Modes**: Run with default PrepuHack branding or pass `--official` to keep standard Mega Hack naming.
+3. **User-Configurable Branding & Themes (`config.json`)**: Easily change mod name, developer, description, about text, and custom theme colors (`accent`, `background`, `tab_text`) via `config.json`.
 4. **Cross-Platform**: Works natively on Windows, Linux (Steam Deck, Proton, Flatpak, Snap), and macOS.
 5. **Zero Dependencies**: Pure Python standard library implementation.
+
+---
+
+## Configuration (`config.json`)
+
+Customize branding and theme colors by editing `config.json`:
+
+```json
+{
+  "mod_id": "oneypi.prepuhack",
+  "name": "PrepuHack",
+  "developer": "oneypi",
+  "description": "long live the prepubros!",
+  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
+  "logo_path": "logo.png",
+  "theme": {
+    "name": "Cyanish",
+    "accent": "#00CED1",
+    "background": "#1A2A2D",
+    "tab_text": "#FFFFFF"
+  }
+}
+```
+
+Hex color formats (`"#00CED1"`, `"0x00CED1"`) and custom logo file paths (`"logo_path"`) are fully supported.
 
 ---
 
 ## Command Line Options
 
 ```bash
-# Default mode (custom PrepuHack branding + automatic cleanup)
+# Default mode (custom branding & theme loaded from config.json)
 python3 prepuhack.py
 
-# Keep official Mega Hack branding
+# Official mode (official Mega Hack branding + Red/Grey official theme)
 python3 prepuhack.py --official
 
 # Additional options
-python3 prepuhack.py --no-theme      # Skip applying Cyanish theme config
+python3 prepuhack.py --no-theme      # Skip applying theme config
 python3 prepuhack.py --no-cleanup    # Skip purging older cached installations
 ```
 
@@ -91,6 +116,7 @@ Once finished, launch Geometry Dash and press **TAB** to open Mega Hack!
 ```
 PrepuHack/
 ├── prepuhack.py       # Main patcher and deployment script
+├── config.json        # User-configurable branding and theme settings
 └── README.md          # Project documentation
 ```
 

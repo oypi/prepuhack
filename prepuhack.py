@@ -99,27 +99,8 @@ LOCALAPPDATA = detect_localappdata()
 GEODE_DATA = detect_geode_data_dir()
 
 ORIGINAL_MOD_ID = "absolllute.megahack"
-CUSTOM_MOD_ID = "oneypi.prepuhack"
 ORIGINAL_DLL = f"{ORIGINAL_MOD_ID}.dll"
-CUSTOM_DLL = f"{CUSTOM_MOD_ID}.dll"
-
-CUSTOM_NAME = "PrepuHack"
-CUSTOM_DEVELOPER = "oneypi"
-CUSTOM_DESCRIPTION = "long live the prepubros!"
-CUSTOM_ABOUT = """# PrepuHack
-
-PrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!
-
-Press TAB to open the menu.
-
-## Links
-
-Made with love by the prepubros.
-"""
 CUSTOM_LOGO = Path(__file__).parent / "logo.png"
-CYAN_ACCENT = 0x00CED1
-CYAN_BACKGROUND = 0x1A2A2D
-CYAN_TAB_TEXT = 0xFFFFFF
 
 INSTALL_JSON_URL = "https://absolllute.com/api/mega_hack/v9/install.json"
 
@@ -137,6 +118,57 @@ PROLOGUES = [
     re.compile(rb'\x55\x56\x57\x48\x81\xEC'),
     re.compile(rb'\x55\x56\x57\x48\x83\xEC'),
 ]
+
+DEFAULT_CONFIG = {
+    "mod_id": "oneypi.prepuhack",
+    "name": "PrepuHack",
+    "developer": "oneypi",
+    "description": "long live the prepubros!",
+    "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
+    "logo_path": "logo.png",
+    "theme": {
+        "name": "Cyanish",
+        "accent": "#00CED1",
+        "background": "#1A2A2D",
+        "tab_text": "#FFFFFF"
+    }
+}
+
+
+def parse_color(val, default_val=0) -> int:
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        v = val.strip().lstrip('#')
+        if v.lower().startswith('0x'):
+            v = v[2:]
+        try:
+            return int(v, 16)
+        except ValueError:
+            pass
+    return default_val
+
+
+def load_user_config() -> dict:
+    config_path = Path(__file__).parent / "config.json"
+    if not config_path.exists():
+        try:
+            config_path.write_text(json.dumps(DEFAULT_CONFIG, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        return DEFAULT_CONFIG
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        merged = dict(DEFAULT_CONFIG)
+        merged.update(data)
+        if "theme" in data and isinstance(data["theme"], dict):
+            merged_theme = dict(DEFAULT_CONFIG["theme"])
+            merged_theme.update(data["theme"])
+            merged["theme"] = merged_theme
+        return merged
+    except Exception as e:
+        print(f"  [WARN] Could not parse config.json ({e}), using default configuration.")
+        return DEFAULT_CONFIG
 
 
 def err(msg):
@@ -310,16 +342,13 @@ def deploy_license(license_str, active_mod_id: str):
     locations = []
     dirs_to_try = [
         LOCALAPPDATA / ORIGINAL_MOD_ID,
-        LOCALAPPDATA / CUSTOM_MOD_ID,
         LOCALAPPDATA / active_mod_id,
         GEODE_DATA / "mods" / ORIGINAL_MOD_ID if GEODE_DATA else None,
-        GEODE_DATA / "mods" / CUSTOM_MOD_ID if GEODE_DATA else None,
         GEODE_DATA / "mods" / active_mod_id if GEODE_DATA else None,
     ]
     if GD_PATH and GD_PATH.exists():
         dirs_to_try.extend([
             GD_PATH / ORIGINAL_MOD_ID,
-            GD_PATH / CUSTOM_MOD_ID,
             GD_PATH / active_mod_id,
             GD_PATH,
         ])
@@ -335,29 +364,49 @@ def deploy_license(license_str, active_mod_id: str):
     return locations
 
 
-def apply_cyanish_theme(active_mod_id: str):
+def apply_theme(active_mod_id: str, theme_info: dict):
     config_dirs = [
+        LOCALAPPDATA / active_mod_id / "v9",
+        LOCALAPPDATA / ORIGINAL_MOD_ID / "v9",
         LOCALAPPDATA / "GeometryDash" / "geode" / "mods" / active_mod_id / "v9",
+        LOCALAPPDATA / "GeometryDash" / "geode" / "mods" / ORIGINAL_MOD_ID / "v9",
         GEODE_DATA / "mods" / active_mod_id / "v9",
+        GEODE_DATA / "mods" / ORIGINAL_MOD_ID / "v9",
+        GEODE_DATA / "config" / active_mod_id / "v9",
+        GEODE_DATA / "config" / ORIGINAL_MOD_ID / "v9",
+        GEODE_DATA / "save" / active_mod_id / "v9",
+        GEODE_DATA / "save" / ORIGINAL_MOD_ID / "v9",
         GD_PATH / "geode" / "unzipped" / active_mod_id / "v9" if GD_PATH else None,
+        GD_PATH / "geode" / "unzipped" / ORIGINAL_MOD_ID / "v9" if GD_PATH else None,
     ]
-    home_config = {
-        "V_BOOL": {"HOME/DOT": False, "HOME/LIGHT_MODE": False,
-                    "HOME/SEARCH/AUTO_SELECT": True, "HOME/SEARCH/AUTO_UPDATE": True},
-        "V_BYTES": {"HOME/SHORTCUT/ALT": [], "HOME/SHORTCUT/ICONIC": []},
-        "V_DECIMAL": {"HOME/FLOATER/X": 0.0, "HOME/FLOATER/Y": 0.0, "HOME/SCALE": 0.9},
-        "V_INT": {"HOME/ACCENT": CYAN_ACCENT, "HOME/ANIM_SPEED": 250,
-                   "HOME/BACKGROUND": CYAN_BACKGROUND, "HOME/HEIGHT": 1080,
-                   "HOME/TAB_TEXT": CYAN_TAB_TEXT, "HOME/WIDTH": 1920},
-        "V_STRING": {"HOME/LANGUAGE": "en-GB"}
-    }
+
+    accent = parse_color(theme_info.get("accent", "#00CED1"), 0x00CED1)
+    background = parse_color(theme_info.get("background", "#1A2A2D"), 0x1A2A2D)
+    tab_text = parse_color(theme_info.get("tab_text", "#FFFFFF"), 0xFFFFFF)
+
     written = []
+    seen = set()
     for d in config_dirs:
-        if d:
+        if d and str(d.resolve()) not in seen:
+            seen.add(str(d.resolve()))
             try:
                 d.mkdir(parents=True, exist_ok=True)
                 p = d / "home.json"
-                p.write_text(json.dumps(home_config, indent=2))
+                home_config = {}
+                if p.exists():
+                    try:
+                        home_config = json.loads(p.read_text(encoding="utf-8"))
+                    except Exception:
+                        home_config = {}
+
+                if "V_INT" not in home_config or not isinstance(home_config["V_INT"], dict):
+                    home_config["V_INT"] = {}
+
+                home_config["V_INT"]["HOME/ACCENT"] = accent
+                home_config["V_INT"]["HOME/BACKGROUND"] = background
+                home_config["V_INT"]["HOME/TAB_TEXT"] = tab_text
+
+                p.write_text(json.dumps(home_config, indent=2), encoding="utf-8")
                 written.append(p)
             except Exception as e:
                 print(f"  [WARN] Could not write theme config to {d}: {e}")
@@ -369,7 +418,7 @@ def perform_cleanup(active_mod_id: str):
     print("  CLEANUP OLD INSTALLATIONS & CACHES")
     print(f"{'='*50}")
 
-    targets_to_clean = {ORIGINAL_MOD_ID, CUSTOM_MOD_ID, active_mod_id}
+    targets_to_clean = {ORIGINAL_MOD_ID, active_mod_id}
 
     search_dirs = []
     if GD_PATH and GD_PATH.exists():
@@ -445,17 +494,35 @@ def fetch_fresh_geode():
         err(f"Download failed: {e}")
 
 
-def patch_geode_package(geode_zip_bytes, output_path: Path, rebrand: bool = True):
-    target_mod_id = CUSTOM_MOD_ID if rebrand else ORIGINAL_MOD_ID
-    target_name = CUSTOM_NAME if rebrand else "Mega Hack"
-    target_developer = CUSTOM_DEVELOPER if rebrand else "Absolute"
-    target_description = CUSTOM_DESCRIPTION if rebrand else "#1 Geometry Dash mod menu"
-    target_dll = CUSTOM_DLL if rebrand else ORIGINAL_DLL
+def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebrand: bool = True):
+    target_mod_id = config.get("mod_id", ORIGINAL_MOD_ID) if rebrand else ORIGINAL_MOD_ID
+    target_name = config.get("name", "PrepuHack") if rebrand else "Mega Hack"
+    target_developer = config.get("developer", "oneypi") if rebrand else "Absolute"
+    target_description = config.get("description", "") if rebrand else "#1 Geometry Dash mod menu"
+    target_about = config.get("about", "") if rebrand else ""
+    target_dll = f"{target_mod_id}.dll" if rebrand else ORIGINAL_DLL
 
     custom_logo_data = None
-    if rebrand and CUSTOM_LOGO and CUSTOM_LOGO.exists():
-        custom_logo_data = CUSTOM_LOGO.read_bytes()
-        print(f"  Custom logo: {len(custom_logo_data):,} bytes")
+    if rebrand:
+        logo_setting = config.get("logo_path")
+        candidate_paths = []
+        if logo_setting:
+            lp = Path(logo_setting)
+            if lp.is_absolute():
+                candidate_paths.append(lp)
+            else:
+                candidate_paths.append(Path(__file__).parent / lp)
+                candidate_paths.append(Path.cwd() / lp)
+        candidate_paths.append(CUSTOM_LOGO)
+
+        for logo_file in candidate_paths:
+            if logo_file and logo_file.exists() and logo_file.is_file():
+                try:
+                    custom_logo_data = logo_file.read_bytes()
+                    print(f"  Custom logo loaded from: {logo_file} ({len(custom_logo_data):,} bytes)")
+                    break
+                except Exception as e:
+                    print(f"  [WARN] Could not read logo from {logo_file}: {e}")
 
     with zipfile.ZipFile(io.BytesIO(geode_zip_bytes), 'r') as zin:
         with zipfile.ZipFile(str(output_path), 'w', zipfile.ZIP_DEFLATED) as zout:
@@ -467,8 +534,8 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, rebrand: bool = True
                     print(f"\nPatching {ORIGINAL_DLL} ({len(file_data):,} bytes)")
                     targets = find_all_targets(file_data)
                     file_data = apply_patches(file_data, targets)
-                    if rebrand and CUSTOM_NAME and len(CUSTOM_NAME) == len("Mega Hack"):
-                        file_data = rename_in_dll(file_data, b'Mega Hack', CUSTOM_NAME.encode())
+                    if rebrand and target_name and len(target_name) == len("Mega Hack"):
+                        file_data = rename_in_dll(file_data, b'Mega Hack', target_name.encode())
                     out_name = target_dll
                     print(f"  DLL: {ORIGINAL_DLL} -> {target_dll}")
 
@@ -477,16 +544,16 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, rebrand: bool = True
                     file_data = customize_mod_json(file_data, target_mod_id, target_name, target_developer, target_description)
                     print(f"  id={target_mod_id}, name={target_name}, dev={target_developer}")
 
-                elif item.filename == 'about.md' and rebrand:
+                elif item.filename == 'about.md' and rebrand and target_about:
                     print("  Replaced about.md")
-                    file_data = CUSTOM_ABOUT.encode('utf-8')
+                    file_data = target_about.encode('utf-8')
 
                 elif item.filename == 'logo.png' and rebrand and custom_logo_data:
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
 
                 elif rebrand and ORIGINAL_MOD_ID in item.filename:
-                    out_name = item.filename.replace(ORIGINAL_MOD_ID, CUSTOM_MOD_ID)
+                    out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
                 zout.writestr(out_name, file_data)
     return output_path
@@ -520,22 +587,37 @@ def deploy_to_geode(patched_file_path: Path, active_filename: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Mega Hack / PrepuHack Patcher & Installer")
-    parser.add_argument("--official", "--no-rebrand", action="store_true", help="Keep official Mega Hack branding instead of PrepuHack custom branding")
-    parser.add_argument("--no-theme", action="store_true", help="Skip applying Cyanish theme configuration")
+    parser.add_argument("--official", "--no-rebrand", action="store_true", help="Keep official Mega Hack branding and native theme from the official package")
+    parser.add_argument("--no-theme", action="store_true", help="Skip applying theme configuration")
     parser.add_argument("--no-cleanup", action="store_true", help="Skip cleaning up older cached installations")
     args = parser.parse_args()
 
     rebrand = not args.official
-    active_mod_id = CUSTOM_MOD_ID if rebrand else ORIGINAL_MOD_ID
-    active_name = CUSTOM_NAME if rebrand else "Mega Hack"
-    active_developer = CUSTOM_DEVELOPER if rebrand else "Absolute"
+    if args.official:
+        user_config = {
+            "mod_id": ORIGINAL_MOD_ID,
+            "name": "Mega Hack",
+            "developer": "Absolute",
+            "description": "#1 Geometry Dash mod menu",
+            "about": "",
+        }
+    else:
+        user_config = load_user_config()
+
+    active_mod_id = user_config.get("mod_id", ORIGINAL_MOD_ID)
+    active_name = user_config.get("name", "Mega Hack")
+    active_developer = user_config.get("developer", "Absolute")
     active_geode_filename = f"{active_mod_id}.geode"
+
+    theme_info = user_config.get("theme", {})
+    theme_name = theme_info.get("name", "Custom") if rebrand else "Official (Native from .geode)"
 
     print("=" * 60)
     print(f"  {active_name} Patcher ({SYSTEM})")
     print(f"  by {active_developer}")
     print("=" * 60)
-    print(f"  Branding Mode:      {'PrepuHack (Custom)' if rebrand else 'Mega Hack (Official)'}")
+    print(f"  Branding Mode:      {'Custom (' + active_name + ')' if rebrand else 'Mega Hack (Official)'}")
+    print(f"  Theme Mode:         {theme_name}")
     print(f"  Detected Platform:  {SYSTEM}")
     print(f"  Detected GD Path:  {GD_PATH}")
     print(f"  Detected AppData:  {LOCALAPPDATA}")
@@ -550,7 +632,7 @@ def main():
     # Process inside a temporary directory that auto-deletes on exit
     with tempfile.TemporaryDirectory(prefix="prepuhack_") as temp_dir:
         temp_geode = Path(temp_dir) / active_geode_filename
-        patched_file = patch_geode_package(geode_zip, temp_geode, rebrand=rebrand)
+        patched_file = patch_geode_package(geode_zip, temp_geode, config=user_config, rebrand=rebrand)
 
         print(f"\n{'='*50}")
         print("  LICENSE")
@@ -558,12 +640,17 @@ def main():
         for loc in deploy_license(generate_license(), active_mod_id):
             print(f"  {loc}")
 
-        if not args.no_theme:
+        if rebrand and not args.no_theme:
             print(f"\n{'='*50}")
-            print("  THEME")
+            print(f"  THEME ({theme_name})")
             print(f"{'='*50}")
-            for loc in apply_cyanish_theme(active_mod_id):
+            for loc in apply_theme(active_mod_id, theme_info=theme_info):
                 print(f"  {loc}")
+        elif not rebrand:
+            print(f"\n{'='*50}")
+            print("  THEME (Official - Native from .geode)")
+            print(f"{'='*50}")
+            print("  Using official native theme defaults directly from .geode package.")
 
         print(f"\n{'='*50}")
         print("  DEPLOY")
