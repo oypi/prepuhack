@@ -6,16 +6,33 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![Geode Compatible](https://img.shields.io/badge/geode-v9.x-brightgreen.svg)](https://geode-sdk.org/)
 
-PrepuHack is an automated patcher tool that unlocks Mega Hack v9 for Geometry Dash without requiring a purchased account or license key. It downloads the latest official Mega Hack `.geode` release package, bypasses all authentication and DRM license checks, generates offline license tokens, and deploys it directly into your Geode mod loader.
+PrepuHack is an automated patcher tool that unlocks Mega Hack v9 for Geometry Dash without requiring a purchased account or license key. It downloads the latest official Mega Hack `.geode` release package, bypasses all authentication and DRM license checks, generates offline license tokens, automatically purges older cached installations, and deploys it directly into your Geode mod loader.
 
 ---
 
 ## What This Tool Does
 
 1. **Unlocks Mega Hack v9 for Free**: Bypasses Mega Hack's online account check, hardware ID verification, and license signature checks.
-2. **Automated Setup**: Downloads the newest official release package directly from the server — no manual extraction required.
-3. **Cross-Platform**: Works natively on Windows, Linux (Steam Deck, Proton, Flatpak, Snap), and macOS.
-4. **Zero Dependencies**: Pure Python standard library implementation.
+2. **Automated Setup & Cleanup**: Downloads the newest official release package directly from the server and purges any older cached installations before deploying.
+3. **Optional Branding Modes**: Run with default PrepuHack branding or pass `--official` to keep standard Mega Hack naming.
+4. **Cross-Platform**: Works natively on Windows, Linux (Steam Deck, Proton, Flatpak, Snap), and macOS.
+5. **Zero Dependencies**: Pure Python standard library implementation.
+
+---
+
+## Command Line Options
+
+```bash
+# Default mode (custom PrepuHack branding + automatic cleanup)
+python3 prepuhack.py
+
+# Keep official Mega Hack branding
+python3 prepuhack.py --official
+
+# Additional options
+python3 prepuhack.py --no-theme      # Skip applying Cyanish theme config
+python3 prepuhack.py --no-cleanup    # Skip purging older cached installations
+```
 
 ---
 
@@ -74,7 +91,6 @@ Once finished, launch Geometry Dash and press **TAB** to open Mega Hack!
 ```
 PrepuHack/
 ├── prepuhack.py       # Main patcher and deployment script
-├── requirements.txt   # Standard library declaration
 └── README.md          # Project documentation
 ```
 
