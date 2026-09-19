@@ -575,7 +575,7 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
 
-                elif rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL:
+                elif rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL and not item.filename.startswith("resources/"):
                     out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
                 zout.writestr(out_name, file_data)
