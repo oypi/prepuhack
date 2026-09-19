@@ -1,3 +1,0 @@
-# PrepuHack Patcher Requirements
-# This tool requires Python 3.8+ and uses standard library modules only.
-# No third-party pip dependencies are needed.
