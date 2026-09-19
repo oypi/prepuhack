@@ -354,68 +354,48 @@ def generate_license():
 
 def deploy_license(license_str, active_mod_id: str):
     locations = []
-    dirs_to_try = [
-        LOCALAPPDATA / ORIGINAL_MOD_ID,
-        GEODE_DATA / "mods" / ORIGINAL_MOD_ID if GEODE_DATA else None,
-    ]
-    if GD_PATH and GD_PATH.exists():
-        dirs_to_try.extend([
-            GD_PATH / ORIGINAL_MOD_ID,
-            GD_PATH,
-        ])
-    for d in dirs_to_try:
-        if d:
-            try:
-                d.mkdir(parents=True, exist_ok=True)
-                target = d / "license"
-                target.write_text(license_str)
-                locations.append(target)
-            except Exception as e:
-                print(f"  [WARN] Could not write license to {d}: {e}")
+    # Official Mega Hack only looks in %LOCALAPPDATA%\absolllute.megahack\license
+    license_dir = LOCALAPPDATA / ORIGINAL_MOD_ID
+    try:
+        license_dir.mkdir(parents=True, exist_ok=True)
+        target = license_dir / "license"
+        target.write_text(license_str)
+        locations.append(target)
+    except Exception as e:
+        print(f"  [WARN] Could not write license to {license_dir}: {e}")
     return locations
 
 
 def apply_theme(active_mod_id: str, theme_info: dict):
-    config_dirs = [
-        LOCALAPPDATA / ORIGINAL_MOD_ID / "v9",
-        GD_PATH / ORIGINAL_MOD_ID / "v9" if GD_PATH else None,
-        LOCALAPPDATA / "GeometryDash" / "geode" / "mods" / ORIGINAL_MOD_ID / "v9",
-        GEODE_DATA / "mods" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
-        GEODE_DATA / "config" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
-        GEODE_DATA / "save" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
-        GD_PATH / "geode" / "unzipped" / ORIGINAL_MOD_ID / "v9" if GD_PATH else None,
-    ]
+    # Official Mega Hack stores settings/themes exclusively in %GEODE_DATA%\mods\absolllute.megahack\v9\home.json
+    config_dir = GEODE_DATA / "mods" / ORIGINAL_MOD_ID / "v9"
 
     accent = parse_color(theme_info.get("accent", "#00CED1"), 0x00CED1)
     background = parse_color(theme_info.get("background", "#1A2A2D"), 0x1A2A2D)
     tab_text = parse_color(theme_info.get("tab_text", "#FFFFFF"), 0xFFFFFF)
 
     written = []
-    seen = set()
-    for d in config_dirs:
-        if d and str(d.resolve()) not in seen:
-            seen.add(str(d.resolve()))
+    try:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        p = config_dir / "home.json"
+        home_config = {}
+        if p.exists():
             try:
-                d.mkdir(parents=True, exist_ok=True)
-                p = d / "home.json"
+                home_config = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
                 home_config = {}
-                if p.exists():
-                    try:
-                        home_config = json.loads(p.read_text(encoding="utf-8"))
-                    except Exception:
-                        home_config = {}
 
-                if "V_INT" not in home_config or not isinstance(home_config["V_INT"], dict):
-                    home_config["V_INT"] = {}
+        if "V_INT" not in home_config or not isinstance(home_config["V_INT"], dict):
+            home_config["V_INT"] = {}
 
-                home_config["V_INT"]["HOME/ACCENT"] = accent
-                home_config["V_INT"]["HOME/BACKGROUND"] = background
-                home_config["V_INT"]["HOME/TAB_TEXT"] = tab_text
+        home_config["V_INT"]["HOME/ACCENT"] = accent
+        home_config["V_INT"]["HOME/BACKGROUND"] = background
+        home_config["V_INT"]["HOME/TAB_TEXT"] = tab_text
 
-                p.write_text(json.dumps(home_config, indent=2), encoding="utf-8")
-                written.append(p)
-            except Exception as e:
-                print(f"  [WARN] Could not write theme config to {d}: {e}")
+        p.write_text(json.dumps(home_config, indent=2), encoding="utf-8")
+        written.append(p)
+    except Exception as e:
+        print(f"  [WARN] Could not write theme config to {config_dir}: {e}")
     return written
 
 
@@ -595,9 +575,6 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
 
-                elif item.filename.startswith(f"resources/{ORIGINAL_MOD_ID}/"):
-                    out_name = "resources/" + item.filename[len(f"resources/{ORIGINAL_MOD_ID}/"):]
-
                 elif rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL:
                     out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
@@ -605,32 +582,59 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
     return output_path
 
 
+def is_real_geode_loader(dll_path: Path) -> bool:
+    if not dll_path or not dll_path.exists() or not dll_path.is_file():
+        return False
+    # Geode's loader DLL is small (~50-100KB), whereas Standalone Mega Hack's proxy DLL is ~4MB
+    try:
+        return dll_path.stat().st_size < 500_000
+    except Exception:
+        return False
+
+
 def fetch_and_restore_geode_loader() -> bool:
     if not GD_PATH or not GD_PATH.exists():
         return False
-    xinput = GD_PATH / "XInput1_4.dll"
-    if xinput.exists():
-        return True
 
-    xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
-    if xinput_bak.exists():
-        try:
-            shutil.move(str(xinput_bak), str(xinput))
-            print(f"  Restored Geode loader from backup: {xinput.name}")
-            return True
-        except Exception:
-            pass
+    xinput = GD_PATH / "XInput1_4.dll"
+    if xinput.exists() and is_real_geode_loader(xinput):
+        return True
 
     print("Fetching official Geode loader from GitHub...")
     try:
-        url = "https://github.com/geode-sdk/geode/releases/download/v5.10.1/geode-v5.10.1-win.zip"
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(req) as r:
+        if xinput.exists():
+            try:
+                xinput.unlink()
+            except Exception:
+                pass
+
+        api_url = "https://api.github.com/repos/geode-sdk/geode/releases/latest"
+        req = Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
+        download_url = None
+        tag_name = "latest"
+
+        try:
+            with urlopen(req) as r:
+                rel_data = json.load(r)
+                tag_name = rel_data.get("tag_name", "latest")
+                for asset in rel_data.get("assets", []):
+                    aname = asset.get("name", "").lower()
+                    if "win" in aname and aname.endswith(".zip"):
+                        download_url = asset.get("browser_download_url")
+                        break
+        except Exception as e:
+            print(f"  [WARN] GitHub API release lookup failed: {e}")
+
+        if not download_url:
+            download_url = "https://github.com/geode-sdk/geode/releases/latest/download/geode-v5.10.1-win.zip"
+
+        dl_req = Request(download_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(dl_req) as r:
             with zipfile.ZipFile(io.BytesIO(r.read())) as z:
                 for fname in ["XInput1_4.dll", "Geode.dll", "GeodeUpdater.exe"]:
                     if fname in z.namelist():
                         (GD_PATH / fname).write_bytes(z.read(fname))
-                        print(f"  Restored official Geode file: {fname}")
+                        print(f"  Restored official Geode file ({tag_name}): {fname}")
         return True
     except Exception as e:
         print(f"  [WARN] Could not auto-download Geode binaries: {e}")
@@ -640,15 +644,6 @@ def fetch_and_restore_geode_loader() -> bool:
 def deploy_standalone(zip_bytes: bytes, config: dict, rebrand: bool = True):
     if not GD_PATH or not GD_PATH.exists():
         err("Geometry Dash path not found. Use --gd-path to specify your installation directory.")
-
-    xinput_file = GD_PATH / "XINPUT1_4.dll"
-    xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
-    if xinput_file.exists() and not xinput_bak.exists():
-        try:
-            shutil.copy(str(xinput_file), str(xinput_bak))
-            print(f"  Backed up Geode launcher DLL to: {xinput_bak.name}")
-        except Exception as e:
-            print(f"  [WARN] Could not backup XINPUT1_4.dll: {e}")
 
     target_name = config.get("name", "PrepuHack") if rebrand else "Mega Hack"
     print(f"\nExtracting and patching Standalone package directly into {GD_PATH}")
@@ -736,14 +731,7 @@ def perform_uninstall(active_mod_id: str, mode: str = "all"):
                 except Exception as e:
                     print(f"  [WARN] Failed removing {sf}: {e}")
 
-        xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
-        if xinput_bak.exists():
-            try:
-                shutil.move(str(xinput_bak), str(GD_PATH / "XINPUT1_4.dll"))
-                print(f"  Restored Geode launcher DLL from backup: XINPUT1_4.dll")
-                removed += 1
-            except Exception as e:
-                print(f"  [WARN] Could not restore XINPUT1_4.dll backup: {e}")
+        fetch_and_restore_geode_loader()
 
         res_dir = GD_PATH / "Resources"
         if res_dir.is_dir():
