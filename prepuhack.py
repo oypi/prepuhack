@@ -120,20 +120,22 @@ PROLOGUES = [
 ]
 
 DEFAULT_CONFIG = {
-    "mod_id": "oneypi.prepuhack",
+    "_comment_shared": "=== SHARED CONFIG (Affects BOTH Geode & Standalone) ===",
     "name": "PrepuHack",
     "developer": "oneypi",
-    "description": "long live the prepubros!",
-    "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
-    "changelog": "# PrepuHack Changelog\n\n## v9.1.3\n- Initial PrepuHack release\n- Custom Cyanish theme and branding\n- Full DRM and license verification bypass",
-    "changelog_path": "changelog.md",
     "logo_path": "logo.png",
     "theme": {
         "name": "Cyanish",
         "accent": "#00CED1",
         "background": "#1A2A2D",
         "tab_text": "#FFFFFF"
-    }
+    },
+
+    "_comment_geode": "=== GEODE ONLY CONFIG (Affects Geode mod package only) ===",
+    "mod_id": "oneypi.prepuhack",
+    "description": "long live the prepubros!",
+    "about_path": "about.md",
+    "changelog_path": "changelog.md"
 }
 
 
@@ -163,6 +165,10 @@ def load_user_config() -> dict:
         data = json.loads(config_path.read_text(encoding="utf-8"))
         merged = dict(DEFAULT_CONFIG)
         merged.update(data)
+        for gkey in ["geode", "geode_only", "geode_options"]:
+            if gkey in data and isinstance(data[gkey], dict):
+                merged.update(data[gkey])
+
         if "theme" in data and isinstance(data["theme"], dict):
             merged_theme = dict(DEFAULT_CONFIG["theme"])
             merged_theme.update(data["theme"])
@@ -350,14 +356,11 @@ def deploy_license(license_str, active_mod_id: str):
     locations = []
     dirs_to_try = [
         LOCALAPPDATA / ORIGINAL_MOD_ID,
-        LOCALAPPDATA / active_mod_id,
         GEODE_DATA / "mods" / ORIGINAL_MOD_ID if GEODE_DATA else None,
-        GEODE_DATA / "mods" / active_mod_id if GEODE_DATA else None,
     ]
     if GD_PATH and GD_PATH.exists():
         dirs_to_try.extend([
             GD_PATH / ORIGINAL_MOD_ID,
-            GD_PATH / active_mod_id,
             GD_PATH,
         ])
     for d in dirs_to_try:
@@ -374,17 +377,12 @@ def deploy_license(license_str, active_mod_id: str):
 
 def apply_theme(active_mod_id: str, theme_info: dict):
     config_dirs = [
-        LOCALAPPDATA / active_mod_id / "v9",
         LOCALAPPDATA / ORIGINAL_MOD_ID / "v9",
-        LOCALAPPDATA / "GeometryDash" / "geode" / "mods" / active_mod_id / "v9",
+        GD_PATH / ORIGINAL_MOD_ID / "v9" if GD_PATH else None,
         LOCALAPPDATA / "GeometryDash" / "geode" / "mods" / ORIGINAL_MOD_ID / "v9",
-        GEODE_DATA / "mods" / active_mod_id / "v9",
-        GEODE_DATA / "mods" / ORIGINAL_MOD_ID / "v9",
-        GEODE_DATA / "config" / active_mod_id / "v9",
-        GEODE_DATA / "config" / ORIGINAL_MOD_ID / "v9",
-        GEODE_DATA / "save" / active_mod_id / "v9",
-        GEODE_DATA / "save" / ORIGINAL_MOD_ID / "v9",
-        GD_PATH / "geode" / "unzipped" / active_mod_id / "v9" if GD_PATH else None,
+        GEODE_DATA / "mods" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
+        GEODE_DATA / "config" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
+        GEODE_DATA / "save" / ORIGINAL_MOD_ID / "v9" if GEODE_DATA else None,
         GD_PATH / "geode" / "unzipped" / ORIGINAL_MOD_ID / "v9" if GD_PATH else None,
     ]
 
@@ -434,45 +432,45 @@ def perform_cleanup(active_mod_id: str):
             GD_PATH / "geode" / "unzipped",
             GD_PATH / "geode" / "mods",
             GD_PATH / "geode" / "config",
+            GD_PATH / "geode" / "save",
         ])
     if GEODE_DATA and GEODE_DATA.exists():
         search_dirs.extend([
             GEODE_DATA / "unzipped",
             GEODE_DATA / "mods",
             GEODE_DATA / "config",
+            GEODE_DATA / "save",
         ])
 
-    cleaned_count = 0
-    for sdir in search_dirs:
-        if not sdir.is_dir():
+    file_targets = {f"{t}.geode" for t in targets_to_clean} | {f"{t}.dll" for t in targets_to_clean}
+    for base in search_dirs:
+        if not base.exists():
             continue
-        try:
-            for item in sdir.iterdir():
-                name_lower = item.name.lower()
-                is_match = (
-                    any(m in name_lower for m in ["megahack", "prepuhack"]) or
-                    any(t in name_lower for t in targets_to_clean)
-                )
-                if is_match:
-                    try:
-                        if item.is_dir():
-                            shutil.rmtree(item)
-                            print(f"  Deleted cached dir:  {item}")
-                        else:
-                            item.unlink()
-                            print(f"  Deleted cached file: {item}")
-                        cleaned_count += 1
-                    except Exception as e:
-                        print(f"  [WARN] Failed to delete {item}: {e}")
-        except Exception as e:
-            print(f"  [WARN] Failed to scan {sdir}: {e}")
+        for child in list(base.iterdir()):
+            if child.is_dir() and child.name in targets_to_clean:
+                try:
+                    shutil.rmtree(child)
+                    print(f"  Purged cache/dir: {child}")
+                except Exception as e:
+                    print(f"  [WARN] Could not purge {child}: {e}")
+            elif child.is_file() and child.name in file_targets:
+                try:
+                    child.unlink()
+                    print(f"  Purged cache/file: {child}")
+                except Exception as e:
+                    print(f"  [WARN] Could not purge {child}: {e}")
 
-    if cleaned_count == 0:
-        print("  No previous cached installations or stale files found.")
+    for loc in [LOCALAPPDATA / ORIGINAL_MOD_ID, LOCALAPPDATA / active_mod_id]:
+        if loc and loc.exists():
+            try:
+                shutil.rmtree(loc)
+                print(f"  Purged license dir: {loc}")
+            except Exception as e:
+                print(f"  [WARN] Could not purge {loc}: {e}")
 
 
-def fetch_fresh_geode():
-    print("Fetching release metadata...")
+def fetch_fresh_package(use_geode: bool = True) -> tuple[bytes, str]:
+    print("\nFetching latest version metadata...")
     try:
         r = urlopen(Request(INSTALL_JSON_URL, headers={"User-Agent": "Mozilla/5.0"}))
         pkg_data = json.load(r)
@@ -483,7 +481,7 @@ def fetch_fresh_geode():
     bundles = cur_package["bundles"]
     bundle = None
     for b in bundles:
-        if b.get("geode", False):
+        if b.get("geode", False) == use_geode:
             bundle = b
             break
     if not bundle:
@@ -494,7 +492,7 @@ def fetch_fresh_geode():
     filename = bundle["file"]
     url = f"https://absolllute.com/api/mega_hack/v9/files/{group}/{filename}"
 
-    print(f"Downloading {bundle['name']} ({version})...")
+    print(f"Downloading {bundle['name']} ({version}, geode={use_geode})...")
     try:
         with urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"})) as r:
             return r.read(), version
@@ -507,13 +505,25 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
     target_name = config.get("name", "PrepuHack") if rebrand else "Mega Hack"
     target_developer = config.get("developer", "oneypi") if rebrand else "Absolute"
     target_description = config.get("description", "") if rebrand else "#1 Geometry Dash mod menu"
-    target_about = config.get("about", "") if rebrand else ""
     target_dll = f"{target_mod_id}.dll" if rebrand else ORIGINAL_DLL
+    target_about = ""
+    if rebrand:
+        about_setting = config.get("about_path", "about.md")
+        if about_setting:
+            ap = Path(about_setting)
+            candidates = [ap] if ap.is_absolute() else [Path(__file__).parent / ap, Path.cwd() / ap]
+            for ab_file in candidates:
+                if ab_file and ab_file.exists() and ab_file.is_file():
+                    try:
+                        target_about = ab_file.read_text(encoding="utf-8")
+                        print(f"  Custom about loaded from: {ab_file}")
+                        break
+                    except Exception as e:
+                        print(f"  [WARN] Could not read about from {ab_file}: {e}")
 
     target_changelog = ""
     if rebrand:
-        changelog_setting = config.get("changelog_path")
-        changelog_file_loaded = False
+        changelog_setting = config.get("changelog_path", "changelog.md")
         if changelog_setting:
             cp = Path(changelog_setting)
             candidates = [cp] if cp.is_absolute() else [Path(__file__).parent / cp, Path.cwd() / cp]
@@ -522,12 +532,9 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     try:
                         target_changelog = cl_file.read_text(encoding="utf-8")
                         print(f"  Custom changelog loaded from: {cl_file}")
-                        changelog_file_loaded = True
                         break
                     except Exception as e:
                         print(f"  [WARN] Could not read changelog from {cl_file}: {e}")
-        if not changelog_file_loaded:
-            target_changelog = config.get("changelog", "")
 
     custom_logo_data = None
     if rebrand:
@@ -568,6 +575,8 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
 
                 elif item.filename.endswith(('.so', '.dylib')) and rebrand and target_name:
                     file_data = rename_in_dll(file_data, b'Mega Hack', target_name)
+                    if ORIGINAL_MOD_ID in item.filename:
+                        out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
                 elif item.filename == 'mod.json':
                     print("\nCustomizing mod.json")
@@ -586,11 +595,202 @@ def patch_geode_package(geode_zip_bytes, output_path: Path, config: dict, rebran
                     file_data = custom_logo_data
                     print("  Replaced logo.png")
 
-                if rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL:
+                elif item.filename.startswith(f"resources/{ORIGINAL_MOD_ID}/"):
+                    out_name = "resources/" + item.filename[len(f"resources/{ORIGINAL_MOD_ID}/"):]
+
+                elif rebrand and ORIGINAL_MOD_ID in item.filename and item.filename != ORIGINAL_DLL:
                     out_name = item.filename.replace(ORIGINAL_MOD_ID, target_mod_id)
 
                 zout.writestr(out_name, file_data)
     return output_path
+
+
+def fetch_and_restore_geode_loader() -> bool:
+    if not GD_PATH or not GD_PATH.exists():
+        return False
+    xinput = GD_PATH / "XInput1_4.dll"
+    if xinput.exists():
+        return True
+
+    xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
+    if xinput_bak.exists():
+        try:
+            shutil.move(str(xinput_bak), str(xinput))
+            print(f"  Restored Geode loader from backup: {xinput.name}")
+            return True
+        except Exception:
+            pass
+
+    print("Fetching official Geode loader from GitHub...")
+    try:
+        url = "https://github.com/geode-sdk/geode/releases/download/v5.10.1/geode-v5.10.1-win.zip"
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(req) as r:
+            with zipfile.ZipFile(io.BytesIO(r.read())) as z:
+                for fname in ["XInput1_4.dll", "Geode.dll", "GeodeUpdater.exe"]:
+                    if fname in z.namelist():
+                        (GD_PATH / fname).write_bytes(z.read(fname))
+                        print(f"  Restored official Geode file: {fname}")
+        return True
+    except Exception as e:
+        print(f"  [WARN] Could not auto-download Geode binaries: {e}")
+        return False
+
+
+def deploy_standalone(zip_bytes: bytes, config: dict, rebrand: bool = True):
+    if not GD_PATH or not GD_PATH.exists():
+        err("Geometry Dash path not found. Use --gd-path to specify your installation directory.")
+
+    xinput_file = GD_PATH / "XINPUT1_4.dll"
+    xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
+    if xinput_file.exists() and not xinput_bak.exists():
+        try:
+            shutil.copy(str(xinput_file), str(xinput_bak))
+            print(f"  Backed up Geode launcher DLL to: {xinput_bak.name}")
+        except Exception as e:
+            print(f"  [WARN] Could not backup XINPUT1_4.dll: {e}")
+
+    target_name = config.get("name", "PrepuHack") if rebrand else "Mega Hack"
+    print(f"\nExtracting and patching Standalone package directly into {GD_PATH}")
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        for item in zf.infolist():
+            filename = item.filename
+            if filename.endswith("/"):
+                (GD_PATH / filename.rstrip("/")).mkdir(parents=True, exist_ok=True)
+            else:
+                data = zf.read(filename)
+                if filename == "hackpro.dll":
+                    print(f"  Patching {filename} ({len(data):,} bytes)")
+                    targets = find_all_targets(data)
+                    data = apply_patches(data, targets)
+                    if rebrand and target_name:
+                        data = rename_in_dll(data, b'Mega Hack', target_name)
+                elif filename.endswith(('.dll', '.so', '.dylib')) and rebrand and target_name:
+                    data = rename_in_dll(data, b'Mega Hack', target_name)
+
+                target_file = GD_PATH / filename
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                target_file.write_bytes(data)
+                print(f"  Extracted: {target_file}")
+
+
+def perform_uninstall(active_mod_id: str, mode: str = "all"):
+    print("=" * 60)
+    print("  UNINSTALLING MEGA HACK / PREPUHACK")
+    print("=" * 60)
+
+    removed = 0
+    targets = {ORIGINAL_MOD_ID, active_mod_id}
+
+    # 1. Geode Mod Files, Unzipped Caches, Config & Save Folders
+    if mode in ("all", "geode"):
+        geode_targets = []
+        if GD_PATH:
+            geode_targets.extend([
+                GD_PATH / "geode" / "mods",
+                GD_PATH / "geode" / "unzipped",
+                GD_PATH / "geode" / "config",
+                GD_PATH / "geode" / "save",
+            ])
+        if GEODE_DATA:
+            geode_targets.extend([
+                GEODE_DATA / "mods",
+                GEODE_DATA / "unzipped",
+                GEODE_DATA / "config",
+                GEODE_DATA / "save",
+            ])
+
+        for gdir in geode_targets:
+            if not gdir or not gdir.is_dir():
+                continue
+            try:
+                for item in list(gdir.iterdir()):
+                    name_lower = item.name.lower()
+                    if any(t in name_lower for t in targets) or "prepuhack" in name_lower or "megahack" in name_lower:
+                        try:
+                            if item.is_dir():
+                                shutil.rmtree(item)
+                                print(f"  Removed dir:  {item}")
+                            else:
+                                item.unlink()
+                                print(f"  Removed file: {item}")
+                            removed += 1
+                        except Exception as e:
+                            print(f"  [WARN] Failed removing {item}: {e}")
+            except Exception as e:
+                print(f"  [WARN] Could not scan {gdir}: {e}")
+
+    # 2. Standalone DLLs and Resources in GD_PATH
+    if mode in ("all", "standalone") and GD_PATH and GD_PATH.exists():
+        standalone_files = [
+            GD_PATH / "hackpro.dll",
+            GD_PATH / "license",
+        ]
+        for sf in standalone_files:
+            if sf.exists() and sf.is_file():
+                try:
+                    sf.unlink()
+                    print(f"  Removed file: {sf}")
+                    removed += 1
+                except Exception as e:
+                    print(f"  [WARN] Failed removing {sf}: {e}")
+
+        xinput_bak = GD_PATH / "XINPUT1_4.dll.geode_bak"
+        if xinput_bak.exists():
+            try:
+                shutil.move(str(xinput_bak), str(GD_PATH / "XINPUT1_4.dll"))
+                print(f"  Restored Geode launcher DLL from backup: XINPUT1_4.dll")
+                removed += 1
+            except Exception as e:
+                print(f"  [WARN] Could not restore XINPUT1_4.dll backup: {e}")
+
+        res_dir = GD_PATH / "Resources"
+        if res_dir.is_dir():
+            try:
+                for ritem in list(res_dir.iterdir()):
+                    rname_lower = ritem.name.lower()
+                    if any(t in rname_lower for t in targets) or "prepuhack" in rname_lower or "megahack" in rname_lower:
+                        try:
+                            if ritem.is_dir():
+                                shutil.rmtree(ritem)
+                                print(f"  Removed dir:  {ritem}")
+                            else:
+                                ritem.unlink()
+                                print(f"  Removed file: {ritem}")
+                            removed += 1
+                        except Exception as e:
+                            print(f"  [WARN] Failed removing {ritem}: {e}")
+            except Exception as e:
+                print(f"  [WARN] Could not scan {res_dir}: {e}")
+
+    # 3. AppData & GD Root License Folders
+    gd_appdata_dirs = []
+    if LOCALAPPDATA and LOCALAPPDATA.exists():
+        gd_appdata_dirs.extend([
+            LOCALAPPDATA / ORIGINAL_MOD_ID,
+            LOCALAPPDATA / active_mod_id,
+        ])
+    if GD_PATH and GD_PATH.exists():
+        gd_appdata_dirs.extend([
+            GD_PATH / ORIGINAL_MOD_ID,
+            GD_PATH / active_mod_id,
+        ])
+
+    for ad in gd_appdata_dirs:
+        if ad and ad.exists():
+            try:
+                if ad.is_dir():
+                    shutil.rmtree(ad)
+                    print(f"  Removed dir:  {ad}")
+                else:
+                    ad.unlink()
+                    print(f"  Removed file: {ad}")
+                removed += 1
+            except Exception as e:
+                print(f"  [WARN] Failed removing {ad}: {e}")
+
+    print(f"\nUninstall complete. ({removed} item(s) removed)\n")
 
 
 def deploy_to_geode(patched_file_path: Path, active_filename: str):
@@ -621,12 +821,25 @@ def deploy_to_geode(patched_file_path: Path, active_filename: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Mega Hack / PrepuHack Patcher & Installer")
+    parser.add_argument("--standalone", action="store_true", help="Force deployment of standalone binaries directly to Geometry Dash instead of Geode mod package")
     parser.add_argument("--official", "--no-rebrand", action="store_true", help="Keep official Mega Hack branding and native theme from the official package")
+    parser.add_argument("--uninstall", action="store_true", help="Uninstall/remove Mega Hack and PrepuHack files, DLLs, and caches")
     parser.add_argument("--no-theme", action="store_true", help="Skip applying theme configuration")
     parser.add_argument("--no-cleanup", action="store_true", help="Skip cleaning up older cached installations")
+    parser.add_argument("--gd-path", type=str, help="Specify path to Geometry Dash installation directory")
+    parser.add_argument("--appdata-path", type=str, help="Specify path to local AppData directory / Wine prefix")
     args = parser.parse_args()
 
+    global GD_PATH, LOCALAPPDATA, GEODE_DATA
+    if args.gd_path:
+        GD_PATH = Path(args.gd_path).expanduser().resolve()
+    if args.appdata_path:
+        LOCALAPPDATA = Path(args.appdata_path).expanduser().resolve()
+        if IS_WINDOWS:
+            GEODE_DATA = LOCALAPPDATA / "GeometryDash" / "geode"
+
     rebrand = not args.official
+    use_geode = not args.standalone
     if args.official:
         user_config = {
             "mod_id": ORIGINAL_MOD_ID,
@@ -651,23 +864,63 @@ def main():
     print(f"  by {active_developer}")
     print("=" * 60)
     print(f"  Branding Mode:      {'Custom (' + active_name + ')' if rebrand else 'Mega Hack (Official)'}")
+    print(f"  Target Type:        {'Geode Package' if use_geode else 'Standalone Binaries'}")
     print(f"  Theme Mode:         {theme_name}")
     print(f"  Detected Platform:  {SYSTEM}")
     print(f"  Detected GD Path:  {GD_PATH}")
     print(f"  Detected AppData:  {LOCALAPPDATA}")
     print(f"  Detected Geode Data:{GEODE_DATA}\n")
 
+    if args.uninstall:
+        mode = "standalone" if args.standalone else "geode"
+        perform_uninstall(active_mod_id, mode=mode)
+        return
+
     if not args.no_cleanup:
         perform_cleanup(active_mod_id)
 
-    geode_zip, version = fetch_fresh_geode()
-    print(f"  Downloaded {len(geode_zip):,} bytes (version {version})")
+    pkg_zip, version = fetch_fresh_package(use_geode=use_geode)
+    print(f"  Downloaded {len(pkg_zip):,} bytes (version {version})")
 
-    # Process inside a temporary directory that auto-deletes on exit
-    with tempfile.TemporaryDirectory(prefix="prepuhack_") as temp_dir:
-        temp_geode = Path(temp_dir) / active_geode_filename
-        patched_file = patch_geode_package(geode_zip, temp_geode, config=user_config, rebrand=rebrand)
+    if use_geode:
+        if GD_PATH and GD_PATH.exists():
+            standalone_dll = GD_PATH / "hackpro.dll"
+            if standalone_dll.exists():
+                try:
+                    standalone_dll.unlink()
+                    print("  Removed standalone hackpro.dll to restore Geode compatibility")
+                except Exception:
+                    pass
+            fetch_and_restore_geode_loader()
 
+        # Process inside a temporary directory that auto-deletes on exit
+        with tempfile.TemporaryDirectory(prefix="prepuhack_") as temp_dir:
+            temp_geode = Path(temp_dir) / active_geode_filename
+            patched_file = patch_geode_package(pkg_zip, temp_geode, config=user_config, rebrand=rebrand)
+
+            print(f"\n{'='*50}")
+            print("  LICENSE")
+            print(f"{'='*50}")
+            for loc in deploy_license(generate_license(), active_mod_id):
+                print(f"  {loc}")
+
+            if rebrand and not args.no_theme:
+                print(f"\n{'='*50}")
+                print(f"  THEME ({theme_name})")
+                print(f"{'='*50}")
+                for loc in apply_theme(active_mod_id, theme_info=theme_info):
+                    print(f"  {loc}")
+            elif not rebrand:
+                print(f"\n{'='*50}")
+                print("  THEME (Official - Native from .geode)")
+                print(f"{'='*50}")
+                print("  Using official native theme defaults directly from .geode package.")
+
+            print(f"\n{'='*50}")
+            print("  DEPLOY")
+            print(f"{'='*50}")
+            deploy_to_geode(patched_file, active_geode_filename)
+    else:
         print(f"\n{'='*50}")
         print("  LICENSE")
         print(f"{'='*50}")
@@ -680,16 +933,11 @@ def main():
             print(f"{'='*50}")
             for loc in apply_theme(active_mod_id, theme_info=theme_info):
                 print(f"  {loc}")
-        elif not rebrand:
-            print(f"\n{'='*50}")
-            print("  THEME (Official - Native from .geode)")
-            print(f"{'='*50}")
-            print("  Using official native theme defaults directly from .geode package.")
 
         print(f"\n{'='*50}")
-        print("  DEPLOY")
+        print("  DEPLOY (STANDALONE)")
         print(f"{'='*50}")
-        deploy_to_geode(patched_file, active_geode_filename)
+        deploy_standalone(pkg_zip, config=user_config, rebrand=rebrand)
 
     # Cleanup any leftover .geode files in working directory if present
     for old_file in Path.cwd().glob("*.geode"):

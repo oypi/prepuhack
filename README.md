@@ -26,39 +26,53 @@ Customize branding and theme colors by editing `config.json`:
 
 ```json
 {
-  "mod_id": "oneypi.prepuhack",
+  "_comment_shared": "=== SHARED CONFIG (Geode & Standalone) ===",
   "name": "PrepuHack",
   "developer": "oneypi",
-  "description": "long live the prepubros!",
-  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi.",
-  "changelog": "# PrepuHack Changelog\n\n## v9.1.3\n- Initial PrepuHack release",
-  "changelog_path": "changelog.md",
   "logo_path": "logo.png",
   "theme": {
     "name": "Cyanish",
     "accent": "#00CED1",
     "background": "#1A2A2D",
     "tab_text": "#FFFFFF"
-  }
+  },
+
+  "_comment_geode": "=== GEODE ONLY CONFIG ===",
+  "mod_id": "oneypi.prepuhack",
+  "description": "long live the prepubros!",
+  "about_path": "about.md",
+  "changelog_path": "changelog.md"
 }
 ```
 
-Hex color formats (`"#00CED1"`, `"0x00CED1"`), custom logo files (`"logo_path"`), and custom markdown changelogs (`"changelog_path"` or `"changelog"`) are fully supported.
+Hex color formats (`"#00CED1"`, `"0x00CED1"`), custom logo files (`"logo_path"`), and separate markdown files (`"about_path"`, `"changelog_path"`) are fully supported.
 
 ---
 
 ## Command Line Options
 
 ```bash
-# Default mode (custom branding & theme loaded from config.json)
+# Default mode (custom branding & theme loaded from config.json, Geode package)
 python3 prepuhack.py
 
-# Official mode (official Mega Hack branding + Red/Grey official theme)
+# Standalone mode (deploy standalone DLLs directly to GD directory instead of Geode)
+python3 prepuhack.py --standalone
+
+# Official mode (official Mega Hack branding + native official theme)
 python3 prepuhack.py --official
 
-# Additional options
-python3 prepuhack.py --no-theme      # Skip applying theme config
-python3 prepuhack.py --no-cleanup    # Skip purging older cached installations
+# Stacked arguments (e.g. Official Standalone installation)
+python3 prepuhack.py --official --standalone
+
+# Uninstall / Clean removal (removes mod files, DLLs, caches & license tokens)
+python3 prepuhack.py --uninstall
+python3 prepuhack.py --uninstall --standalone
+
+# Path Overrides & Modifiers
+python3 prepuhack.py --no-theme            # Skip applying theme config
+python3 prepuhack.py --no-cleanup          # Skip purging older cached installations
+python3 prepuhack.py --gd-path "/path/to/GD" # Manually specify Geometry Dash directory
+python3 prepuhack.py --appdata-path "/path" # Manually specify AppData / Wine prefix directory
 ```
 
 ---

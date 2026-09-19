@@ -1,16 +1,18 @@
 {
-  "mod_id": "oneypi.prepuhack",
+  "_comment_shared": "=== SHARED CONFIG (Affects BOTH Geode & Standalone) ===",
   "name": "PrepuHack",
   "developer": "oneypi",
-  "description": "long live the prepubros!",
-  "about": "# PrepuHack\n\nPrepuHack is a customized Geometry Dash mod menu built by oneypi. long live the prepubros!\n\nPress TAB to open the menu.\n\n## Links\n\nMade with love by the prepubros.",
-  "changelog": "# PrepuHack Changelog\n\n## v9.1.3\n- Initial PrepuHack release\n- Custom Cyanish theme and branding\n- Full DRM and license verification bypass",
-  "changelog_path": "changelog.md",
   "logo_path": "logo.png",
   "theme": {
     "name": "Cyanish",
     "accent": "#00CED1",
     "background": "#1A2A2D",
     "tab_text": "#FFFFFF"
-  }
+  },
+
+  "_comment_geode": "=== GEODE ONLY CONFIG (Affects Geode mod package only) ===",
+  "mod_id": "oneypi.prepuhack",
+  "description": "long live the prepubros!",
+  "about_path": "about.md",
+  "changelog_path": "changelog.md"
 }
